@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 背景の丸 -->
+  <rect width="512" height="512" rx="110" fill="#2563a8"/>
+  <!-- 時計の外枠 -->
+  <circle cx="256" cy="276" r="160" fill="none" stroke="white" stroke-width="28"/>
+  <!-- 時計の中 -->
+  <circle cx="256" cy="276" r="10" fill="white"/>
+  <!-- 短針 -->
+  <line x1="256" y1="276" x2="256" y2="180" stroke="white" stroke-width="22" stroke-linecap="round"/>
+  <!-- 長針 -->
+  <line x1="256" y1="276" x2="316" y2="276" stroke="white" stroke-width="16" stroke-linecap="round"/>
+  <!-- 王冠（上部ボタン） -->
+  <rect x="226" y="96" width="60" height="28" rx="14" fill="white"/>
+  <!-- 左ボタン -->
+  <rect x="148" y="118" width="22" height="46" rx="11" fill="white" transform="rotate(-35 159 141)"/>
+  <!-- 右ボタン -->
+  <rect x="338" y="118" width="22" height="46" rx="11" fill="white" transform="rotate(35 349 141)"/>
+</svg>

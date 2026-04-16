@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>作業タイマー</title>
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#2563a8">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="作業タイマー">
+  <link rel="apple-touch-icon" href="./icon.svg">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue: #2563a8;
+      --blue-light: #e8f0fb;
+      --red: #c0392b;
+      --gray-bg: #f0f2f5;
+      --card-bg: #fff;
+      --text: #1a1a2e;
+      --muted: #6b7a99;
+      --border: #dde3ef;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--gray-bg);
+      min-height: 100dvh;
+      padding: 12px 12px 100px;
+      color: var(--text);
+    }
+
+    .app-header {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .app-header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; }
+
+    .info-bar {
+      background: var(--blue-light);
+      border: 1.5px solid #b3caef;
+      border-radius: 12px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #1a3a6e;
+    }
+    .info-bar .label { font-weight: 700; }
+
+    .break-banner {
+      display: none;
+      background: #fff3cd;
+      border: 1.5px solid #f0c060;
+      border-radius: 12px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #7a5800;
+      text-align: center;
+    }
+    .break-banner.show { display: block; }
+
+    /* ===== タイマーカード ===== */
+    .timer-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+
+    .timer-name-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .timer-name {
+      flex: 1;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: var(--text);
+      padding: 2px 4px;
+      border-radius: 6px;
+      min-width: 0;
+    }
+    .timer-name:focus { background: #f0f4ff; }
+
+    .btn-delete {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #c0c8d8;
+      font-size: 18px;
+      line-height: 1;
+      padding: 2px 4px;
+      border-radius: 6px;
+      flex-shrink: 0;
+      transition: color 0.15s;
+    }
+    .btn-delete:active { color: var(--red); }
+
+    .timer-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-toggle {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      flex-shrink: 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.1s, box-shadow 0.2s;
+      background: radial-gradient(circle at 38% 38%, #6ea8d8, #3a7fc1 60%, #2563a8);
+      box-shadow: 0 4px 12px rgba(37,99,168,0.35);
+    }
+    .btn-toggle.running {
+      background: radial-gradient(circle at 38% 38%, #e07070, #d94f4f 60%, #b83232);
+      box-shadow: 0 4px 12px rgba(184,50,50,0.35);
+    }
+    .btn-toggle::after {
+      content: '';
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.22);
+      position: absolute;
+      top: 9px; left: 9px;
+    }
+    .btn-toggle .icon {
+      position: relative; z-index: 1;
+      width: 0; height: 0;
+      border-top: 9px solid transparent;
+      border-bottom: 9px solid transparent;
+      border-left: 15px solid rgba(255,255,255,0.92);
+      margin-left: 3px;
+    }
+    .btn-toggle.running .icon {
+      width: 13px; height: 13px;
+      border: none;
+      border-left: 4px solid rgba(255,255,255,0.92);
+      border-right: 4px solid rgba(255,255,255,0.92);
+      margin-left: 0;
+      border-radius: 1px;
+    }
+    .btn-toggle:active { transform: scale(0.92); }
+
+    .time-display {
+      flex: 1;
+      font-size: 34px;
+      font-weight: 300;
+      letter-spacing: 2px;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+    }
+
+    .btn-reset {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: #f7f9fc;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted);
+      flex-shrink: 0;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-reset:active { transform: scale(0.9); background: #e8edf5; }
+    .btn-reset svg { width: 18px; height: 18px; }
+
+    /* ===== 計量業務 ===== */
+    .keiryo-select {
+      flex: 1;
+      padding: 6px 8px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      background: #fff;
+      color: var(--text);
+    }
+
+    /* ===== タイマー追加ボタン ===== */
+    .add-btn-wrap {
+      position: fixed;
+      bottom: 24px; left: 0; right: 0;
+      display: flex;
+      justify-content: center;
+      z-index: 10;
+    }
+    .btn-add {
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: 32px;
+      padding: 14px 36px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 18px rgba(37,99,168,0.4);
+      display: flex; align-items: center; gap: 8px;
+      transition: transform 0.1s, box-shadow 0.2s;
+    }
+    .btn-add:active { transform: scale(0.96); }
+    .btn-add .plus { font-size: 22px; line-height: 1; }
+
+    /* ===== 昼休憩例外設定 ===== */
+    .section-toggle {
+      background: var(--card-bg);
+      border: none;
+      border-radius: 12px;
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--blue);
+      cursor: pointer;
+      text-align: left;
+      margin-bottom: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .section-toggle .arrow { transition: transform 0.2s; }
+    .section-toggle.open .arrow { transform: rotate(180deg); }
+
+    .override-section {
+      display: none;
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    .override-section.open { display: block; }
+
+    .section-title {
+      font-size: 12px; font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .override-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 10px;
+    }
+    .override-row label { font-size: 13px; font-weight: 600; color: var(--muted); width: 42px; flex-shrink: 0; }
+    .override-row input[type="date"] {
+      flex: 1;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 14px;
+      outline: none;
+      color: var(--text);
+      background: #fafbfc;
+    }
+    .override-row input:focus { border-color: var(--blue); }
+
+    .pattern-btns {
+      display: flex; gap: 8px;
+      margin-bottom: 10px;
+    }
+    .btn-pattern {
+      flex: 1;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      background: #fafbfc;
+      padding: 8px 0;
+      font-size: 15px; font-weight: 700;
+      cursor: pointer; color: var(--text);
+      transition: all 0.15s;
+      line-height: 1.4;
+    }
+    .btn-pattern.selected { border-color: var(--blue); background: var(--blue-light); color: var(--blue); }
+    .btn-pattern:active { transform: scale(0.96); }
+
+    .override-actions { display: flex; gap: 8px; margin-top: 4px; }
+    .btn-save-override, .btn-clear-override {
+      flex: 1; border: none; border-radius: 10px;
+      padding: 10px 0; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .btn-save-override { background: var(--blue); color: #fff; box-shadow: 0 2px 8px rgba(37,99,168,0.3); }
+    .btn-clear-override { background: #f0f2f5; color: var(--muted); }
+    .btn-save-override:active, .btn-clear-override:active { transform: scale(0.97); }
+
+    .override-list { margin-top: 12px; font-size: 12px; color: var(--muted); }
+    .override-list-item {
+      display: flex; justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid #f0f2f5;
+    }
+    .override-list-item button { background: none; border: none; color: var(--red); font-size: 12px; cursor: pointer; }
+
+    /* ===== 作業時間集計 ===== */
+    .summary-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    .summary-title {
+      font-size: 14px; font-weight: 700;
+      color: var(--text);
+      margin-bottom: 14px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .summary-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f2f5;
+    }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-label { font-size: 13px; color: var(--muted); font-weight: 600; }
+    .summary-value {
+      font-size: 22px; font-weight: 300;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 1px;
+      color: var(--text);
+    }
+    .summary-value.highlight { color: var(--blue); font-weight: 500; }
+
+    .work-min-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 12px;
+    }
+    .work-min-label { font-size: 13px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+    .work-min-input {
+      width: 80px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 16px; font-weight: 600;
+      text-align: right;
+      outline: none; color: var(--text); background: #fafbfc;
+    }
+    .work-min-input:focus { border-color: var(--blue); }
+    .work-min-unit { font-size: 13px; color: var(--muted); }
+
+    .preset-btns {
+      display: flex; gap: 6px;
+      margin-bottom: 14px;
+    }
+    .btn-preset {
+      flex: 1; border: 1.5px solid var(--border);
+      border-radius: 8px; background: #fafbfc;
+      padding: 6px 0; font-size: 13px; font-weight: 600;
+      cursor: pointer; color: var(--muted);
+      transition: all 0.15s;
+    }
+    .btn-preset:active { background: var(--blue-light); border-color: var(--blue); color: var(--blue); }
+  </style>
+</head>
+<body>
+
+<div class="app-header"><h1>作業タイマー</h1></div>
+
+<div class="break-banner" id="breakBanner">⏸ 休憩時間中（自動停止）</div>
+
+<div class="info-bar">
+  <span class="label">今日の昼休憩：</span><span id="lunchInfo">読み込み中...</span>
+</div>
+
+<div id="timerContainer"></div>
+
+<!-- ===== 作業時間集計 ===== -->
+<div class="summary-card">
+  <div class="summary-title">📋 今日の作業</div>
+
+  <div class="work-min-row">
+    <span class="work-min-label">勤務時間</span>
+    <input class="work-min-input" type="number" id="workMinInput"
+      min="0" max="1440" step="1" inputmode="numeric"
+      value="480" oninput="onWorkMinChange(this.value)">
+    <span class="work-min-unit">分</span>
+  </div>
+
+  <div class="preset-btns">
+    <button class="btn-preset" onclick="setWorkMin(450)">450分<br><small>7h30m</small></button>
+    <button class="btn-preset" onclick="setWorkMin(510)">510分<br><small>8h30m</small></button>
+    <button class="btn-preset" onclick="setWorkMin(570)">570分<br><small>9h30m</small></button>
+  </div>
+
+  <div class="summary-row">
+    <span class="summary-label">合計作業時間</span>
+    <span class="summary-value highlight" id="summaryTotal">00:00</span>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">除外時間</span>
+    <span class="summary-value" id="summaryExclude">00:00</span>
+  </div>
+</div>
+
+<!-- ===== 計量業務 ===== -->
+<div class="summary-card">
+  <div class="summary-title">⚖️ 計量業務</div>
+  <div class="work-min-row">
+    <span class="work-min-label">計量数</span>
+    <input class="work-min-input" type="number" id="keiryoCount"
+      min="0" step="1" inputmode="numeric" value="0" oninput="calcKeiryo()">
+    <span class="work-min-unit">個</span>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">計量作業時間（18秒/個）</span>
+    <span class="summary-value highlight" id="keiryoTime">0 分</span>
+  </div>
+  <div class="work-min-row" style="margin-top:8px">
+    <span class="work-min-label">対象タイマー</span>
+    <select class="keiryo-select" id="keiryoTimer" onchange="calcKeiryo()"></select>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">タイマー − 計量時間</span>
+    <span class="summary-value" id="keiryoDiff">— 分</span>
+  </div>
+</div>
+
+<button class="section-toggle" id="overrideToggle" onclick="toggleOverrideSection()">
+  昼休憩ローテーション変更 <span class="arrow">▼</span>
+</button>
+<div class="override-section" id="overrideSection">
+  <div class="section-title">変更開始日</div>
+  <div class="override-row">
+    <label>日付</label>
+    <input type="date" id="overrideDate">
+  </div>
+  <div class="section-title">この日から適用するパターン</div>
+  <div class="pattern-btns">
+    <button class="btn-pattern" id="btnA" onclick="selectPattern('A')">A<br><small>11:40〜12:25</small></button>
+    <button class="btn-pattern" id="btnB" onclick="selectPattern('B')">B<br><small>12:00〜12:45</small></button>
+    <button class="btn-pattern" id="btnC" onclick="selectPattern('C')">C<br><small>12:20〜13:05</small></button>
+  </div>
+  <div class="override-actions">
+    <button class="btn-save-override" onclick="saveRotationChange()">保存</button>
+    <button class="btn-clear-override" onclick="clearRotationForm()">クリア</button>
+  </div>
+  <div class="override-list" id="overrideList"></div>
+</div>
+
+<div class="add-btn-wrap">
+  <button class="btn-add" onclick="addTimer()">
+    <span class="plus">＋</span> タイマーを追加
+  </button>
+</div>
+
+<script>
+// ============================
+// 定数
+// ============================
+const FIXED_BREAKS = [
+  { start: '10:00', end: '10:10' },
+  { start: '15:00', end: '15:10' },
+];
+const LUNCH_PATTERNS = {
+  A: { start: '11:40', end: '12:25' },
+  B: { start: '12:00', end: '12:45' },
+  C: { start: '12:20', end: '13:05' },
+};
+const PATTERN_ORDER = ['B', 'C', 'A'];
+const BASE_YEAR = 2026, BASE_MONTH = 3; // 3 = April (0-indexed)
+// 各パターンを起点にしたときのローテーション順
+const ROTATION_FROM = {
+  A: ['A', 'B', 'C'],
+  B: ['B', 'C', 'A'],
+  C: ['C', 'A', 'B'],
+};
+const STORAGE_KEY = 'work_timers_v2';
+const ROTATION_CHANGE_KEY = 'rotationChanges';
+const LAST_DATE_KEY = 'lastResetDate';
+
+// ============================
+// 状態
+// ============================
+let timers = [];
+let idCounter = 0;
+let selectedPattern = null;
+let rotationChanges = []; // [{ yearMonth:'YYYY-MM', day:DD, pattern:'A' }, ...]
+
+// ============================
+// 昼休憩ロジック
+// ============================
+function getLunchPatternForDate(date) {
+  const yearMonth = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+  const day = date.getDate();
+
+  // この日付以前で最新のローテーション変更を探す
+  const applicable = rotationChanges
+    .filter(c => c.yearMonth < yearMonth || (c.yearMonth === yearMonth && c.day <= day))
+    .sort((a, b) => a.yearMonth !== b.yearMonth
+      ? b.yearMonth.localeCompare(a.yearMonth)
+      : b.day - a.day);
+
+  if (applicable.length > 0) {
+    const base = applicable[0];
+    const [by, bm] = base.yearMonth.split('-').map(Number);
+    // 変更月からの経過月数でパターンを算出
+    const months = (date.getFullYear() - by) * 12 + (date.getMonth() - (bm - 1));
+    return ROTATION_FROM[base.pattern][months % 3];
+  }
+
+  // 変更なし：デフォルトのローテーション
+  const months = (date.getFullYear() - BASE_YEAR) * 12 + (date.getMonth() - BASE_MONTH);
+  return PATTERN_ORDER[((months % 3) + 3) % 3];
+}
+
+function getLunchForDate(date) {
+  const pat = getLunchPatternForDate(date);
+  return { ...LUNCH_PATTERNS[pat], label: pat };
+}
+
+function toDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+
+function toMinutes(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function isInBreak(now) {
+  const cur = now.getHours() * 60 + now.getMinutes();
+  for (const b of FIXED_BREAKS) {
+    if (cur >= toMinutes(b.start) && cur < toMinutes(b.end)) return true;
+  }
+  const lunch = getLunchForDate(now);
+  if (cur >= toMinutes(lunch.start) && cur < toMinutes(lunch.end)) return true;
+  return false;
+}
+
+// ============================
+// タイマー操作
+// ============================
+function addTimer(data = {}) {
+  const id = idCounter++;
+  timers.push({
+    id,
+    name: data.name || `作業${timers.length + 1}`,
+    elapsed: data.elapsed || 0,
+    isRunning: data.isRunning || false,
+    lastStartTime: data.lastStartTime || null,
+    manuallyStopped: data.manuallyStopped || false,
+    stoppedByBreak: data.stoppedByBreak || false,
+  });
+  saveTimers();
+  renderTimers();
+}
+
+function deleteTimer(id) {
+  const t = timers.find(t => t.id === id);
+  if (t && t.isRunning) {
+    t.elapsed += Date.now() - t.lastStartTime;
+  }
+  timers = timers.filter(t => t.id !== id);
+  saveTimers();
+  renderTimers();
+}
+
+function currentElapsed(t) {
+  if (t.isRunning && t.lastStartTime) {
+    return t.elapsed + (Date.now() - t.lastStartTime);
+  }
+  return t.elapsed;
+}
+
+function startTimer(id) {
+  const now = Date.now();
+  // 排他制御：他を自動停止。手動開始時はstoppedByBreakをクリア（休憩後再開の予約を解除）
+  timers.forEach(t => {
+    t.stoppedByBreak = false;
+    if (t.id !== id && t.isRunning) {
+      t.elapsed += now - t.lastStartTime;
+      t.isRunning = false;
+      t.lastStartTime = null;
+      t.manuallyStopped = false;
+    }
+  });
+  const t = timers.find(t => t.id === id);
+  if (!t) return;
+  t.isRunning = true;
+  t.lastStartTime = now;
+  t.manuallyStopped = false;
+  saveTimers();
+  renderTimers();
+}
+
+function stopTimer(id, manual = true) {
+  const t = timers.find(t => t.id === id);
+  if (!t || !t.isRunning) return;
+  t.elapsed += Date.now() - t.lastStartTime;
+  t.isRunning = false;
+  t.lastStartTime = null;
+  t.manuallyStopped = manual;
+  if (manual) t.stoppedByBreak = false; // 手動停止なら休憩再開予約を解除
+  saveTimers();
+  renderTimers();
+}
+
+function resetTimer(id) {
+  const t = timers.find(t => t.id === id);
+  if (!t) return;
+  if (t.isRunning) {
+    t.elapsed = 0;
+    t.lastStartTime = Date.now();
+  } else {
+    t.elapsed = 0;
+    t.manuallyStopped = false;
+    t.stoppedByBreak = false;
+  }
+  saveTimers();
+  renderDisplays();
+}
+
+function toggleTimer(id) {
+  const t = timers.find(t => t.id === id);
+  if (!t) return;
+  if (t.isRunning) {
+    stopTimer(id, true);
+  } else {
+    if (isInBreak(new Date())) return;
+    startTimer(id);
+  }
+}
+
+function updateName(id, value) {
+  const t = timers.find(t => t.id === id);
+  if (t) { t.name = value; saveTimers(); }
+}
+
+// ============================
+// 自動制御
+// ============================
+let lastBreakState = false;
+let lastEodState = false;
+
+function autoControl() {
+  const now = new Date();
+  const inBreak = isInBreak(now);
+  document.getElementById('breakBanner').classList.toggle('show', inBreak);
+
+  // 16:45 定時自動停止（先に判定）
+  const eod = now.getHours() > 16 || (now.getHours() === 16 && now.getMinutes() >= 45);
+  if (eod && !lastEodState) {
+    timers.forEach(t => {
+      t.stoppedByBreak = false; // 定時停止時は再開予約を消す
+      if (t.isRunning) stopTimer(t.id, false);
+    });
+  }
+  lastEodState = eod;
+
+  if (inBreak && !lastBreakState) {
+    // 休憩開始：実行中タイマーをstoppedByBreak=trueでマークして停止
+    timers.forEach(t => {
+      if (t.isRunning) {
+        t.stoppedByBreak = true;
+        stopTimer(t.id, false);
+      }
+    });
+  } else if (!inBreak && lastBreakState && !eod) {
+    // 休憩終了：stoppedByBreakのタイマーを自動再開
+    timers.forEach(t => {
+      if (t.stoppedByBreak) {
+        t.stoppedByBreak = false;
+        startTimer(t.id);
+      }
+    });
+  }
+  lastBreakState = inBreak;
+}
+
+// ============================
+// 表示
+// ============================
+function formatTime(ms) {
+  if (ms < 0) ms = 0;
+  const totalSec = Math.floor(ms / 1000);
+  const sec = totalSec % 60;
+  const min = Math.floor(totalSec / 60);
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(min)}:${pad(sec)}`;
+}
+
+function renderTimers() {
+  const container = document.getElementById('timerContainer');
+  container.innerHTML = '';
+  timers.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'timer-card';
+    card.id = `card-${t.id}`;
+    card.innerHTML = `
+      <div class="timer-name-row">
+        <input class="timer-name" type="text" value="${esc(t.name)}"
+          oninput="updateName(${t.id}, this.value)" placeholder="作業名">
+        <button class="btn-delete" onclick="deleteTimer(${t.id})" title="削除">✕</button>
+      </div>
+      <div class="timer-controls">
+        <button class="btn-toggle${t.isRunning ? ' running' : ''}" id="btn-${t.id}"
+          onclick="toggleTimer(${t.id})">
+          <span class="icon"></span>
+        </button>
+        <div class="time-display" id="time-${t.id}">${formatTime(currentElapsed(t))}</div>
+        <button class="btn-reset" onclick="resetTimer(${t.id})" title="リセット">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+          </svg>
+        </button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+  renderKeiryoTimerSelect();
+}
+
+function renderDisplays() {
+  timers.forEach(t => {
+    const el = document.getElementById(`time-${t.id}`);
+    if (el) el.textContent = formatTime(currentElapsed(t));
+  });
+}
+
+function renderLunchInfo() {
+  const lunch = getLunchForDate(new Date());
+  document.getElementById('lunchInfo').textContent =
+    `${lunch.start}〜${lunch.end}（${lunch.label}）`;
+}
+
+function renderOverrideList() {
+  const el = document.getElementById('overrideList');
+  const sorted = [...rotationChanges].sort((a, b) =>
+    a.yearMonth !== b.yearMonth ? a.yearMonth.localeCompare(b.yearMonth) : a.day - b.day);
+  if (!sorted.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="font-weight:700;margin-bottom:4px;color:#444;">設定済み変更</div>' +
+    sorted.map((c, i) => {
+      const lunch = LUNCH_PATTERNS[c.pattern];
+      const nextPat = ROTATION_FROM[c.pattern][1];
+      return `<div class="override-list-item">
+        <span>${c.yearMonth}-${String(c.day).padStart(2,'0')}〜：${c.pattern}（${lunch.start}〜${lunch.end}）→ 翌月${nextPat}</span>
+        <button onclick="deleteRotationChange(${i})">削除</button>
+      </div>`;
+    }).join('');
+}
+
+// ============================
+// ローテーション変更設定
+// ============================
+function toggleOverrideSection() {
+  document.getElementById('overrideToggle').classList.toggle('open');
+  document.getElementById('overrideSection').classList.toggle('open');
+}
+
+function selectPattern(pat) {
+  selectedPattern = pat;
+  ['A','B','C'].forEach(p =>
+    document.getElementById('btn'+p).classList.toggle('selected', p === pat));
+}
+
+function clearRotationForm() {
+  selectedPattern = null;
+  ['A','B','C'].forEach(p => document.getElementById('btn'+p).classList.remove('selected'));
+}
+
+function saveRotationChange() {
+  const dateVal = document.getElementById('overrideDate').value;
+  if (!dateVal) { alert('日付を選択してください'); return; }
+  if (!selectedPattern) { alert('パターンを選択してください'); return; }
+  const [y, m, d] = dateVal.split('-').map(Number);
+  const yearMonth = `${y}-${String(m).padStart(2,'0')}`;
+  // 同じ yearMonth の既存設定は上書き
+  const idx = rotationChanges.findIndex(c => c.yearMonth === yearMonth);
+  const entry = { yearMonth, day: d, pattern: selectedPattern };
+  if (idx >= 0) rotationChanges[idx] = entry;
+  else rotationChanges.push(entry);
+  saveRotationData();
+  clearRotationForm();
+  renderLunchInfo();
+  renderOverrideList();
+}
+
+function deleteRotationChange(idx) {
+  rotationChanges.splice(idx, 1);
+  saveRotationData();
+  renderLunchInfo();
+  renderOverrideList();
+}
+
+// ============================
+// localStorage
+// ============================
+function saveTimers() {
+  const data = { idCounter, timers: timers.map(t => ({
+    id: t.id,
+    name: t.name,
+    elapsed: currentElapsed(t),
+    isRunning: t.isRunning,
+    lastStartTime: t.isRunning ? t.lastStartTime : null,
+    manuallyStopped: t.manuallyStopped,
+    stoppedByBreak: t.stoppedByBreak,
+  }))};
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  localStorage.setItem(LAST_DATE_KEY, toDateKey(new Date()));
+}
+
+function loadTimers() {
+  try {
+    const d = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (d && d.timers) {
+      idCounter = d.idCounter || 0;
+      d.timers.forEach(t => timers.push({
+        id: t.id,
+        name: t.name,
+        elapsed: t.elapsed || 0,
+        isRunning: t.isRunning || false,
+        lastStartTime: t.lastStartTime || null,
+        manuallyStopped: t.manuallyStopped || false,
+        stoppedByBreak: t.stoppedByBreak || false,
+      }));
+      if (idCounter < timers.length) idCounter = timers.length;
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
+function saveRotationData() {
+  localStorage.setItem(ROTATION_CHANGE_KEY, JSON.stringify(rotationChanges));
+}
+
+function loadRotationData() {
+  try { return JSON.parse(localStorage.getItem(ROTATION_CHANGE_KEY)) || []; }
+  catch { return []; }
+}
+
+// ============================
+// 深夜0時自動リセット
+// ============================
+function resetAllTimers() {
+  timers.forEach(t => {
+    t.elapsed = 0;
+    t.isRunning = false;
+    t.lastStartTime = null;
+    t.manuallyStopped = false;
+    t.stoppedByBreak = false;
+  });
+  lastBreakState = false;
+  lastEodState = false;
+  localStorage.setItem(LAST_DATE_KEY, toDateKey(new Date()));
+  saveTimers();
+  renderTimers();
+  renderSummary();
+  calcKeiryo();
+}
+
+function scheduleMidnightReset() {
+  const now = new Date();
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1, 0);
+  setTimeout(() => {
+    resetAllTimers();
+    scheduleMidnightReset();
+  }, tomorrow.getTime() - Date.now());
+}
+
+// ============================
+// 復帰時の状態補正
+// ============================
+function getBreakTimestampsForDate(date) {
+  const d = new Date(date);
+  const yr = d.getFullYear(), mo = d.getMonth(), dy = d.getDate();
+  const toTs = hhmm => {
+    const [h, m] = hhmm.split(':').map(Number);
+    return new Date(yr, mo, dy, h, m, 0, 0).getTime();
+  };
+  const result = [];
+  for (const b of FIXED_BREAKS) result.push({ start: toTs(b.start), end: toTs(b.end) });
+  const lunch = getLunchForDate(d);
+  result.push({ start: toTs(lunch.start), end: toTs(lunch.end) });
+  result.push({ start: toTs('16:45'), end: new Date(yr, mo, dy, 23, 59, 59, 999).getTime() });
+  return result;
+}
+
+function calcBreakOverlapMs(startMs, endMs, date) {
+  let overlap = 0;
+  for (const b of getBreakTimestampsForDate(date)) {
+    const s = Math.max(startMs, b.start);
+    const e = Math.min(endMs, b.end);
+    if (e > s) overlap += e - s;
+  }
+  return overlap;
+}
+
+function reconcileOnResume() {
+  // スリープ中に0時を過ぎていたら自動リセット
+  const lastDate = localStorage.getItem(LAST_DATE_KEY);
+  if (lastDate && lastDate !== toDateKey(new Date())) {
+    resetAllTimers();
+    return;
+  }
+
+  const now = Date.now();
+  const today = new Date();
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0).getTime();
+
+  // スリープ中の休憩時間を遡って補正
+  timers.forEach(t => {
+    if (!t.isRunning || !t.lastStartTime) return;
+    const effectiveStart = Math.max(t.lastStartTime, todayMidnight);
+    const overlap = calcBreakOverlapMs(effectiveStart, now, today);
+    if (overlap <= 0) return;
+    const rawSession = now - t.lastStartTime;
+    const corrected = Math.max(0, rawSession - overlap);
+    t.elapsed += corrected;
+    t.isRunning = false;
+    t.lastStartTime = null;
+    if (!isInBreak(new Date(now))) {
+      t.isRunning = true;
+      t.lastStartTime = now;
+    } else {
+      t.stoppedByBreak = true; // 休憩中に起動 → 休憩終了後に自動再開予約
+    }
+  });
+
+  const inBreak = isInBreak(today);
+  if (inBreak) {
+    timers.forEach(t => {
+      if (t.isRunning) {
+        t.stoppedByBreak = true; // 休憩中に起動 → 休憩終了後に自動再開予約
+        stopTimer(t.id, false);
+      }
+    });
+  }
+  lastBreakState = inBreak;
+  saveTimers();
+  renderTimers();
+  renderLunchInfo();
+}
+
+// ============================
+// 作業時間集計
+// ============================
+const WORK_MIN_KEY = 'workMinutes';
+let workMinutes = 480;
+
+function getTotalElapsedMs() {
+  const now = Date.now();
+  return timers.reduce((sum, t) => {
+    let ms = t.elapsed;
+    if (t.isRunning && t.lastStartTime) ms += now - t.lastStartTime;
+    return sum + ms;
+  }, 0);
+}
+
+function formatHHMM(ms) {
+  if (ms < 0) ms = 0;
+  const totalMin = Math.floor(ms / 1000 / 60);
+  return `${totalMin} 分`;
+}
+
+function renderSummary() {
+  // 各タイマーを個別に分単位で切り捨ててから合算
+  const now = Date.now();
+  const totalMin = timers.reduce((sum, t) => {
+    let ms = t.elapsed;
+    if (t.isRunning && t.lastStartTime) ms += now - t.lastStartTime;
+    return sum + Math.floor(ms / 1000 / 60);
+  }, 0);
+  const excludeMin = Math.max(0, workMinutes - totalMin);
+  document.getElementById('summaryTotal').textContent = `${totalMin} 分`;
+  document.getElementById('summaryExclude').textContent = `${excludeMin} 分`;
+}
+
+function onWorkMinChange(val) {
+  const n = parseInt(val, 10);
+  if (!isNaN(n) && n >= 0) {
+    workMinutes = n;
+    localStorage.setItem(WORK_MIN_KEY, String(n));
+    renderSummary();
+  }
+}
+
+function setWorkMin(min) {
+  workMinutes = min;
+  document.getElementById('workMinInput').value = min;
+  localStorage.setItem(WORK_MIN_KEY, String(min));
+  renderSummary();
+}
+
+function loadWorkMin() {
+  const saved = localStorage.getItem(WORK_MIN_KEY);
+  if (saved !== null) {
+    const n = parseInt(saved, 10);
+    if (!isNaN(n)) {
+      workMinutes = n;
+      document.getElementById('workMinInput').value = n;
+    }
+  }
+}
+
+// ============================
+// 計量業務
+// ============================
+function calcKeiryo() {
+  const count = parseInt(document.getElementById('keiryoCount').value, 10) || 0;
+  const keiryoMin = Math.floor(count * 18 / 60);
+  document.getElementById('keiryoTime').textContent = `${keiryoMin} 分`;
+
+  const sel = document.getElementById('keiryoTimer');
+  const tid = parseInt(sel.value, 10);
+  const timer = timers.find(t => t.id === tid);
+  if (timer) {
+    const now = Date.now();
+    let ms = timer.elapsed;
+    if (timer.isRunning && timer.lastStartTime) ms += now - timer.lastStartTime;
+    const timerMin = Math.floor(ms / 1000 / 60);
+    document.getElementById('keiryoDiff').textContent = `${timerMin - keiryoMin} 分`;
+  } else {
+    document.getElementById('keiryoDiff').textContent = '— 分';
+  }
+}
+
+function renderKeiryoTimerSelect() {
+  const sel = document.getElementById('keiryoTimer');
+  const prev = sel.value;
+  sel.innerHTML = timers.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+  if (timers.find(t => String(t.id) === prev)) sel.value = prev;
+  calcKeiryo();
+}
+
+// ============================
+// ユーティリティ
+// ============================
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ============================
+// イベント
+// ============================
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') reconcileOnResume();
+  else saveTimers();
+});
+window.addEventListener('focus', reconcileOnResume);
+window.addEventListener('pagehide', saveTimers);
+window.addEventListener('beforeunload', saveTimers);
+
+// ============================
+// Service Worker
+// ============================
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ============================
+// 初期化
+// ============================
+rotationChanges = loadRotationData();
+const restored = loadTimers();
+if (!restored || timers.length === 0) {
+  addTimer({ name: '作業1' });
+  addTimer({ name: '作業2' });
+  addTimer({ name: '作業3' });
+} else {
+  // 前回保存日と今日が違えばリセット（アプリを翌日に開いた場合）
+  const lastDate = localStorage.getItem(LAST_DATE_KEY);
+  if (lastDate && lastDate !== toDateKey(new Date())) {
+    resetAllTimers();
+  } else {
+    renderTimers();
+  }
+}
+scheduleMidnightReset();
+
+renderLunchInfo();
+renderOverrideList();
+document.getElementById('overrideDate').value = toDateKey(new Date());
+loadWorkMin();
+renderSummary();
+
+setInterval(autoControl, 1000);
+autoControl();
+setInterval(() => { renderDisplays(); renderSummary(); calcKeiryo(); }, 500);
+</script>
+</body>
+</html>
